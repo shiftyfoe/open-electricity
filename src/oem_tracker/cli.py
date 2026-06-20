@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from . import analytics, storage
-from .scrapers import emc, ema, live, oem as oem_scraper, retail as retail_scraper
+from .scrapers import emc, live, retail as retail_scraper
 
 console = Console()
 
@@ -24,7 +24,7 @@ def cli():
 # ---------------------------------------------------------------------------
 
 @cli.command()
-@click.option("--source", default="all", type=click.Choice(["all", "emc", "ema", "live", "oem", "retail"]), show_default=True)
+@click.option("--source", default="all", type=click.Choice(["all", "emc", "live", "retail"]), show_default=True)
 @click.option("--date", "run_date", default=None, help="ISO date to label the run (default: today)")
 def fetch(source: str, run_date: str | None):
     """Download and store daily electricity market data."""
@@ -35,12 +35,6 @@ def fetch(source: str, run_date: str | None):
 
     if source in ("all", "emc"):
         _fetch_emc(today)
-
-    if source in ("all", "ema"):
-        _fetch_ema(today)
-
-    if source in ("all", "oem"):
-        _fetch_oem(today)
 
     if source in ("all", "retail"):
         _fetch_retail(today)
@@ -70,25 +64,6 @@ def _fetch_emc(today: date):
     except Exception as e:
         console.print(f"  [red]✗[/] emc: {e}")
 
-
-def _fetch_ema(today: date):
-    console.print("[bold cyan]ema[/] Fetching monthly USEP averages...")
-    try:
-        df = ema.fetch_monthly_usep()
-        path = storage.save_parquet(df, "ema", today)
-        console.print(f"  [green]✓[/] {len(df)} monthly records → {path.name}")
-    except Exception as e:
-        console.print(f"  [red]✗[/] ema: {e}")
-
-
-def _fetch_oem(today: date):
-    console.print("[bold cyan]oem[/] Fetching market share statistics...")
-    try:
-        df = oem_scraper.fetch_market_share()
-        path = storage.save_parquet(df, "oem", today)
-        console.print(f"  [green]✓[/] {len(df)} records → {path.name}")
-    except Exception as e:
-        console.print(f"  [red]✗[/] oem: {e}")
 
 
 def _fetch_retail(today: date):

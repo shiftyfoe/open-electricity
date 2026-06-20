@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: 'Data source to fetch (all | emc | ema | live | oem)'
+        description: 'Data source to fetch (all | emc | live | retail)'
         default: 'all'
         required: false
 
