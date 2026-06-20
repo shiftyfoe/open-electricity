@@ -40,11 +40,3 @@ jobs:
           git diff --staged --quiet && echo "No new data" || (
             git commit -m "chore: daily fetch $(date -u +%Y-%m-%d)" && git push
           )
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@4a80dacd14ee31f0174040c2b8a073d191c53c18 # v4.0.0
-        if: github.event_name != 'pull_request'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
-          keep_files: false
