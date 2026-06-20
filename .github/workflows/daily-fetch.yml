@@ -29,11 +29,22 @@ jobs:
       - name: Fetch data
         run: uv run oem fetch --source ${{ github.event.inputs.source || 'all' }}
 
+      - name: Build static site
+        run: uv run python scripts/build_site.py
+
       - name: Commit new data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
+          git add data/ docs/data/
           git diff --staged --quiet && echo "No new data" || (
             git commit -m "chore: daily fetch $(date -u +%Y-%m-%d)" && git push
           )
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@4a80dacd14ee31f0174040c2b8a073d191c53c18 # v4.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          keep_files: false

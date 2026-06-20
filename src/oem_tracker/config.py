@@ -23,3 +23,7 @@ EMA_HALF_HOURLY_DEMAND_PAGE = f"{EMA_BASE}/resources/statistics/half-hourly-syst
 
 # OEM market share statistics
 OEM_STATS_URL = "https://www.openelectricitymarket.sg/about/statistics"
+
+# Retail plan comparison API (SP Digital, public, no auth, startIndex is 1-based)
+RETAIL_API_BASE = "https://public.api.spdigital.sg/retailer"
+RETAIL_COMPARE_ORIGIN = "https://compare.openelectricitymarket.sg"

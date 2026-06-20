@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from . import analytics, storage
-from .scrapers import emc, ema, live, oem as oem_scraper
+from .scrapers import emc, ema, live, oem as oem_scraper, retail as retail_scraper
 
 console = Console()
 
@@ -24,7 +24,7 @@ def cli():
 # ---------------------------------------------------------------------------
 
 @cli.command()
-@click.option("--source", default="all", type=click.Choice(["all", "emc", "ema", "live", "oem"]), show_default=True)
+@click.option("--source", default="all", type=click.Choice(["all", "emc", "ema", "live", "oem", "retail"]), show_default=True)
 @click.option("--date", "run_date", default=None, help="ISO date to label the run (default: today)")
 def fetch(source: str, run_date: str | None):
     """Download and store daily electricity market data."""
@@ -41,6 +41,9 @@ def fetch(source: str, run_date: str | None):
 
     if source in ("all", "oem"):
         _fetch_oem(today)
+
+    if source in ("all", "retail"):
+        _fetch_retail(today)
 
 
 def _fetch_live(today: date):
@@ -86,6 +89,17 @@ def _fetch_oem(today: date):
         console.print(f"  [green]✓[/] {len(df)} records → {path.name}")
     except Exception as e:
         console.print(f"  [red]✗[/] oem: {e}")
+
+
+def _fetch_retail(today: date):
+    console.print("[bold cyan]retail[/] Fetching retail plan prices...")
+    try:
+        df = retail_scraper.fetch_retail_plans()
+        path = storage.save_parquet(df, "retail", today)
+        tariff = df["regulated_tariff_cents_kwh"].iloc[0] if not df.empty else "?"
+        console.print(f"  [green]✓[/] {len(df)} plans, regulated tariff={tariff} ¢/kWh → {path.name}")
+    except Exception as e:
+        console.print(f"  [red]✗[/] retail: {e}")
 
 
 # ---------------------------------------------------------------------------

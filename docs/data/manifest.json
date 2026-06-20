@@ -1,0 +1,15 @@
+{
+  "emc": {
+    "dates": [
+      "2026-06-13"
+    ]
+  },
+  "live": {
+    "count": 1
+  },
+  "retail": {
+    "latest_date": "2026-06-20",
+    "plan_count": 16,
+    "history_dates": 1
+  }
+}

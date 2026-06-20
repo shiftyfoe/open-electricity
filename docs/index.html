@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SG Electricity Market</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --border:   #334155;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --blue:     #60a5fa;
+      --orange:   #f97316;
+      --yellow:   #facc15;
+      --green:    #4ade80;
+      --red:      #f87171;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em; }
+    header .sub { font-size: 0.8rem; color: var(--muted); margin-left: auto; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1px;
+      border-bottom: 1px solid var(--border);
+      background: var(--border);
+    }
+    .stat {
+      background: var(--surface);
+      padding: 1rem 1.5rem;
+    }
+    .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .stat-value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; }
+    .stat-value.blue  { color: var(--blue); }
+    .stat-value.orange{ color: var(--orange); }
+    .stat-value.yellow{ color: var(--yellow); }
+    .stat-value.green { color: var(--green); }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--blue); }
+
+    .panel { display: none; padding: 1.5rem; }
+    .panel.active { display: block; }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .controls label { font-size: 0.8rem; color: var(--muted); }
+    .controls select, .controls input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.625rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .toggle-group { display: flex; gap: 0.5rem; }
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      padding: 0.3rem 0.625rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.15s;
+    }
+    .toggle input { display: none; }
+    .toggle.checked-blue   { border-color: var(--blue);   color: var(--blue); }
+    .toggle.checked-orange { border-color: var(--orange); color: var(--orange); }
+    .toggle.checked-yellow { border-color: var(--yellow); color: var(--yellow); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.blue   { background: var(--blue); }
+    .dot.orange { background: var(--orange); }
+    .dot.yellow { background: var(--yellow); }
+
+    .chart-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      min-height: 320px;
+    }
+
+    .empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    thead th {
+      background: var(--surface);
+      padding: 0.625rem 0.875rem;
+      text-align: right;
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th:first-child { text-align: left; }
+    thead th:hover { color: var(--text); }
+    thead th .sort-icon { font-size: 0.65rem; margin-left: 0.2rem; opacity: 0.4; }
+    thead th.sorted .sort-icon { opacity: 1; color: var(--blue); }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    tbody td {
+      padding: 0.5rem 0.875rem;
+      text-align: right;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    tbody td:first-child { text-align: left; color: var(--muted); }
+
+    #live-chart-wrap { margin-top: 1.5rem; }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      background: rgba(96,165,250,0.15);
+      color: var(--blue);
+      margin-left: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.2rem">⚡</span>
+  <h1>Singapore Electricity Market</h1>
+  <span class="sub" id="last-updated"></span>
+</header>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label">USEP (live)</div>
+    <div class="stat-value blue" id="stat-usep">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Demand (live)</div>
+    <div class="stat-value orange" id="stat-demand">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">VCP (live)</div>
+    <div class="stat-value yellow" id="stat-vcp">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">EMC dates collected</div>
+    <div class="stat-value green" id="stat-emc-count">—</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="emc">Half-hourly (EMC)</button>
+  <button class="tab-btn" data-tab="live">Live Snapshots</button>
+  <button class="tab-btn" data-tab="retail">Retail Plans</button>
+</div>
+
+<!-- EMC half-hourly panel -->
+<div class="panel active" id="panel-emc">
+  <div class="controls">
+    <label>Date
+      <select id="date-select" onchange="onDateChange()">
+        <option value="">— select —</option>
+      </select>
+    </label>
+    <label>Period
+      <select id="period-filter" onchange="onFilterChange()">
+        <option value="all">All day</option>
+        <option value="night">Night (00–06)</option>
+        <option value="morning">Morning (06–12)</option>
+        <option value="afternoon">Afternoon (12–18)</option>
+        <option value="evening">Evening (18–24)</option>
+      </select>
+    </label>
+    <div class="toggle-group">
+      <label class="toggle checked-blue" id="lbl-usep">
+        <input type="checkbox" id="toggle-usep" checked onchange="onFilterChange()">
+        <span class="dot blue"></span> USEP
+      </label>
+      <label class="toggle checked-orange" id="lbl-demand">
+        <input type="checkbox" id="toggle-demand" checked onchange="onFilterChange()">
+        <span class="dot orange"></span> Demand
+      </label>
+      <label class="toggle checked-yellow" id="lbl-solar">
+        <input type="checkbox" id="toggle-solar" checked onchange="onFilterChange()">
+        <span class="dot yellow"></span> Solar
+      </label>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <canvas id="emc-chart"></canvas>
+    <div class="empty" id="emc-empty">Select a date to load half-hourly data.</div>
+  </div>
+
+  <div class="table-wrap">
+    <table id="emc-table">
+      <thead><tr id="emc-thead"></tr></thead>
+      <tbody id="emc-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Retail plans panel -->
+<div class="panel" id="panel-retail">
+  <div class="controls">
+    <label>Plan type
+      <select id="retail-type-filter" onchange="onRetailFilter()">
+        <option value="all">All types</option>
+        <option value="FR">Fixed Price (FR)</option>
+        <option value="DRT">Discount off Tariff (DRT)</option>
+      </select>
+    </label>
+    <label>Contract
+      <select id="retail-duration-filter" onchange="onRetailFilter()">
+        <option value="all">Any duration</option>
+        <option value="12">12 months</option>
+        <option value="24">24 months</option>
+        <option value="36">36 months</option>
+      </select>
+    </label>
+    <span id="retail-tariff-note" style="margin-left:auto;font-size:0.8rem;color:var(--muted)"></span>
+  </div>
+
+  <div class="chart-wrap" style="min-height:260px">
+    <canvas id="retail-chart"></canvas>
+    <div class="empty" id="retail-empty">No retail plan data. Run: oem fetch --source retail</div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:1.5rem">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left" onclick="onRetailSort('retailer')">Retailer <span class="sort-icon">▲</span></th>
+          <th style="text-align:left" onclick="onRetailSort('offer_name')">Plan <span class="sort-icon">▲</span></th>
+          <th onclick="onRetailSort('offer_type')">Type <span class="sort-icon">▲</span></th>
+          <th onclick="onRetailSort('price_cents_kwh')">Price ¢/kWh <span class="sort-icon">▲</span></th>
+          <th onclick="onRetailSort('estimated_monthly_sgd')">Est. Monthly S$ <span class="sort-icon">▲</span></th>
+          <th onclick="onRetailSort('contract_months')">Contract <span class="sort-icon">▲</span></th>
+          <th onclick="onRetailSort('vs_tariff')">vs Tariff <span class="sort-icon">▲</span></th>
+        </tr>
+      </thead>
+      <tbody id="retail-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Live snapshots panel -->
+<div class="panel" id="panel-live">
+  <div class="chart-wrap" id="live-chart-wrap">
+    <canvas id="live-chart"></canvas>
+    <div class="empty" id="live-empty">No live snapshots collected yet.</div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:1.5rem">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left">Fetched at</th>
+          <th>USEP $/MWh</th>
+          <th>VCP $/MWh</th>
+          <th>Spread</th>
+          <th>Demand MW</th>
+        </tr>
+      </thead>
+      <tbody id="live-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const BASE = '.';
+let emcChart = null;
+let liveChart = null;
+let currentEmcData = [];
+let sortCol = null;
+let sortAsc = true;
+let retailData = [];
+let retailSortCol = '_effective';
+let retailSortAsc = true;
+let retailChart = null;
+
+const EMC_COLS = [
+  { key: 'period',    label: 'Period',        fmt: v => v },
+  { key: 'usep',     label: 'USEP $/MWh',    fmt: v => v?.toFixed(2) ?? '—' },
+  { key: 'demand_mw',label: 'Demand MW',      fmt: v => v?.toFixed(1) ?? '—' },
+  { key: 'solar_mw', label: 'Solar MW',       fmt: v => v?.toFixed(1) ?? '—' },
+  { key: 'eheur',    label: 'EHEUR $/MWh',   fmt: v => v?.toFixed(2) ?? '—' },
+  { key: 'lcp',      label: 'LCP $/MWh',     fmt: v => v?.toFixed(2) ?? '—' },
+  { key: 'rusep',    label: 'RUSEP $/MWh',   fmt: v => v?.toFixed(2) ?? '—' },
+  { key: 'map',      label: 'MAP $/MWh',     fmt: v => v?.toFixed(2) ?? '—' },
+];
+
+// ── init ──────────────────────────────────────────────────────────────────
+async function init() {
+  let manifest;
+  try {
+    manifest = await fetch(`${BASE}/data/manifest.json`).then(r => r.json());
+  } catch {
+    document.getElementById('emc-empty').textContent = 'No data exported yet. Run: uv run python scripts/build_site.py';
+    return;
+  }
+
+  const dates = manifest.emc?.dates ?? [];
+  document.getElementById('stat-emc-count').textContent = dates.length;
+
+  const sel = document.getElementById('date-select');
+  for (const d of [...dates].reverse()) {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    sel.appendChild(opt);
+  }
+
+  await loadLive();
+  await loadRetail();
+
+  if (dates.length > 0) {
+    sel.value = dates[dates.length - 1];
+    await loadEmc(dates[dates.length - 1]);
+  }
+}
+
+// ── live data ─────────────────────────────────────────────────────────────
+async function loadLive() {
+  let records = [];
+  try { records = await fetch(`${BASE}/data/live.json`).then(r => r.json()); } catch { return; }
+
+  if (records.length === 0) return;
+
+  const latest = records[records.length - 1];
+  document.getElementById('stat-usep').textContent   = fmt2(latest.usep) + ' $/MWh';
+  document.getElementById('stat-demand').textContent = fmt0(latest.demand_mw) + ' MW';
+  document.getElementById('stat-vcp').textContent    = fmt2(latest.vcp) + ' $/MWh';
+  document.getElementById('last-updated').textContent = 'Live as of ' + (latest.fetched_at ?? '').slice(0, 16).replace('T', ' ') + ' UTC';
+
+  renderLiveTable(records);
+  renderLiveChart(records);
+}
+
+function renderLiveTable(records) {
+  const tbody = document.getElementById('live-tbody');
+  tbody.innerHTML = [...records].reverse().map(r => {
+    const spread = (r.vcp != null && r.usep != null) ? (r.vcp - r.usep).toFixed(2) : '—';
+    const spreadColor = parseFloat(spread) > 0 ? 'color:var(--green)' : 'color:var(--red)';
+    return `<tr>
+      <td style="text-align:left">${(r.fetched_at ?? '').slice(0, 16).replace('T', ' ')}</td>
+      <td>${fmt2(r.usep)}</td>
+      <td>${fmt2(r.vcp)}</td>
+      <td style="${spreadColor}">${spread}</td>
+      <td>${fmt0(r.demand_mw)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLiveChart(records) {
+  if (records.length < 2) {
+    document.getElementById('live-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('live-empty').style.display = 'none';
+  const labels = records.map(r => (r.fetched_at ?? '').slice(0, 10));
+  if (liveChart) liveChart.destroy();
+  liveChart = new Chart(document.getElementById('live-chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'USEP $/MWh', data: records.map(r => r.usep),     borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.08)', tension: 0.3, yAxisID: 'y' },
+        { label: 'VCP $/MWh',  data: records.map(r => r.vcp),      borderColor: '#facc15', backgroundColor: 'rgba(250,204,21,0.08)',  tension: 0.3, yAxisID: 'y' },
+        { label: 'Demand MW',  data: records.map(r => r.demand_mw), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)',  tension: 0.3, yAxisID: 'y2', borderDash: [4,4] },
+      ],
+    },
+    options: chartOptions('y', 'Price ($/MWh)', 'y2', 'Demand (MW)'),
+  });
+}
+
+// ── retail plans ──────────────────────────────────────────────────────────
+async function loadRetail() {
+  let plans = [];
+  try { plans = await fetch(`${BASE}/data/retail_latest.json`).then(r => r.json()); } catch { return; }
+  if (!plans.length) return;
+
+  // Add computed fields
+  const tariff = plans[0]?.regulated_tariff_cents_kwh ?? 0;
+  for (const p of plans) {
+    p._effective = effectivePrice(p);
+    p._vsTariff = vsTariffPct(p, tariff);
+  }
+  retailData = plans;
+  document.getElementById('retail-empty').style.display = 'none';
+  document.getElementById('retail-tariff-note').textContent =
+    `Regulated tariff: ${tariff.toFixed(2)} ¢/kWh`;
+
+  renderRetailChart();
+  renderRetailTable();
+}
+
+function effectivePrice(r) {
+  if (r.offer_type === 'DRT' && r.discounted_price_cents_kwh != null) {
+    return (r.regulated_tariff_cents_kwh ?? 0) - r.discounted_price_cents_kwh;
+  }
+  return r.price_cents_kwh;
+}
+
+function vsTariffPct(r, tariff) {
+  const eff = r._effective ?? effectivePrice(r);
+  if (eff == null || !tariff) return null;
+  return ((eff - tariff) / tariff * 100);
+}
+
+function applyRetailFilters() {
+  const type = document.getElementById('retail-type-filter').value;
+  const dur = document.getElementById('retail-duration-filter').value;
+  return retailData.filter(r => {
+    if (type !== 'all' && r.offer_type !== type) return false;
+    if (dur !== 'all' && String(r.contract_months) !== dur) return false;
+    return true;
+  });
+}
+
+function renderRetailChart() {
+  let rows = applyRetailFilters();
+  // Sort by effective price ascending, limit to top 20 for readability
+  rows = [...rows].sort((a, b) => (a._effective ?? 999) - (b._effective ?? 999)).slice(0, 20);
+
+  const labels = rows.map(r => {
+    const name = (r.retailer || '').replace(/Pte Ltd|Pte\. Ltd\.?/i, '').trim();
+    return (name.length > 18 ? name.slice(0, 16) + '…' : name) + ' · ' + (r.contract_months || '?') + 'mo';
+  });
+  const colors = rows.map(r => r.offer_type === 'DRT' ? '#facc15' : '#60a5fa');
+
+  if (retailChart) retailChart.destroy();
+  retailChart = new Chart(document.getElementById('retail-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '¢/kWh (effective)',
+        data: rows.map(r => r._effective?.toFixed(2)),
+        backgroundColor: colors,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} ¢/kWh` } },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Effective price (¢/kWh)', color: '#94a3b8' },
+          ticks: { color: '#94a3b8' },
+          grid: { color: '#334155' },
+        },
+        y: {
+          ticks: { color: '#94a3b8', font: { size: 10 } },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+}
+
+function renderRetailTable() {
+  let rows = applyRetailFilters();
+
+  if (retailSortCol) {
+    rows = [...rows].sort((a, b) => {
+      const va = (a[retailSortCol] ?? a._effective ?? 0);
+      const vb = (b[retailSortCol] ?? b._effective ?? 0);
+      return retailSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    });
+  }
+
+  const tariff = rows[0]?.regulated_tariff_cents_kwh ?? 0;
+  document.getElementById('retail-tbody').innerHTML = rows.map(r => {
+    const vs = r._vsTariff;
+    const vsDisplay = vs != null
+      ? (vs <= 0 ? `<span style="color:var(--green)">${vs.toFixed(1)}%</span>`
+                 : `<span style="color:var(--red)">+${vs.toFixed(1)}%</span>`)
+      : '—';
+    const priceDisplay = r.offer_type === 'DRT'
+      ? `<span style="color:var(--yellow)">${(r._effective ?? '—').toFixed(2)}</span>`
+      : (r._effective?.toFixed(2) ?? '—');
+    return `<tr>
+      <td style="text-align:left">${esc(r.retailer)}</td>
+      <td style="text-align:left">${esc(r.offer_name)}</td>
+      <td>${r.offer_type}</td>
+      <td>${priceDisplay}</td>
+      <td>$${(r.estimated_monthly_sgd ?? 0).toFixed(2)}</td>
+      <td>${r.contract_months ?? '—'}</td>
+      <td>${vsDisplay}</td>
+    </tr>`;
+  }).join('');
+}
+
+function onRetailFilter() {
+  renderRetailChart();
+  renderRetailTable();
+}
+
+function onRetailSort(col) {
+  // Map display sort keys to actual data fields
+  const keyMap = { 'price_cents_kwh': '_effective', 'vs_tariff': '_vsTariff' };
+  col = keyMap[col] || col;
+  if (retailSortCol === col) retailSortAsc = !retailSortAsc;
+  else { retailSortCol = col; retailSortAsc = true; }
+  renderRetailTable();
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── EMC half-hourly ───────────────────────────────────────────────────────
+async function loadEmc(date) {
+  if (!date) return;
+  let data;
+  try { data = await fetch(`${BASE}/data/emc/${date}.json`).then(r => r.json()); } catch {
+    document.getElementById('emc-empty').textContent = `Failed to load data for ${date}.`;
+    document.getElementById('emc-empty').style.display = 'flex';
+    return;
+  }
+  currentEmcData = data;
+  document.getElementById('emc-empty').style.display = 'none';
+  renderEmcChart(data);
+  renderEmcTable(data);
+}
+
+function applyPeriodFilter(data) {
+  const v = document.getElementById('period-filter').value;
+  if (v === 'all') return data;
+  const bounds = { night: [0, 6], morning: [6, 12], afternoon: [12, 18], evening: [18, 24] };
+  const [lo, hi] = bounds[v];
+  return data.filter(r => {
+    const h = parseInt((r.period ?? '0').split(':')[0]);
+    return h >= lo && h < hi;
+  });
+}
+
+function renderEmcChart(data) {
+  const rows = applyPeriodFilter(data);
+  const labels = rows.map(r => r.period?.slice(0, 5) ?? '');
+  const datasets = [];
+
+  if (document.getElementById('toggle-usep').checked)
+    datasets.push({ label: 'USEP $/MWh', data: rows.map(r => r.usep), borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.08)', tension: 0.3, yAxisID: 'y' });
+  if (document.getElementById('toggle-demand').checked)
+    datasets.push({ label: 'Demand MW',  data: rows.map(r => r.demand_mw), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)', tension: 0.3, yAxisID: 'y2' });
+  if (document.getElementById('toggle-solar').checked)
+    datasets.push({ label: 'Solar MW',   data: rows.map(r => r.solar_mw),  borderColor: '#facc15', backgroundColor: 'rgba(250,204,21,0.08)',  tension: 0.3, yAxisID: 'y2' });
+
+  if (emcChart) emcChart.destroy();
+  emcChart = new Chart(document.getElementById('emc-chart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: chartOptions('y', 'Price ($/MWh)', 'y2', 'Power (MW)'),
+  });
+}
+
+function renderEmcTable(data) {
+  let rows = applyPeriodFilter(data);
+
+  if (sortCol !== null) {
+    rows = [...rows].sort((a, b) => {
+      const va = a[sortCol] ?? 0, vb = b[sortCol] ?? 0;
+      return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    });
+  }
+
+  const thead = document.getElementById('emc-thead');
+  thead.innerHTML = EMC_COLS.map((c, i) => {
+    const isSorted = sortCol === c.key;
+    const icon = isSorted ? (sortAsc ? '▲' : '▼') : '▲';
+    return `<th class="${isSorted ? 'sorted' : ''}" onclick="onSort('${c.key}')">${c.label}<span class="sort-icon">${icon}</span></th>`;
+  }).join('');
+
+  document.getElementById('emc-tbody').innerHTML = rows.map(r =>
+    '<tr>' + EMC_COLS.map(c => `<td>${c.fmt(r[c.key])}</td>`).join('') + '</tr>'
+  ).join('');
+}
+
+// ── shared chart options ──────────────────────────────────────────────────
+function chartOptions(yId, yLabel, y2Id, y2Label) {
+  return {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#e2e8f0', boxWidth: 12, padding: 16 } },
+    },
+    scales: {
+      x: {
+        ticks: { maxTicksLimit: 12, color: '#94a3b8', maxRotation: 0 },
+        grid: { color: '#334155' },
+      },
+      [yId]: {
+        type: 'linear', position: 'left',
+        title: { display: true, text: yLabel, color: '#94a3b8', font: { size: 11 } },
+        ticks: { color: '#94a3b8' },
+        grid: { color: '#334155' },
+      },
+      [y2Id]: {
+        type: 'linear', position: 'right',
+        title: { display: true, text: y2Label, color: '#94a3b8', font: { size: 11 } },
+        ticks: { color: '#94a3b8' },
+        grid: { drawOnChartArea: false },
+      },
+    },
+  };
+}
+
+// ── event handlers ────────────────────────────────────────────────────────
+function onDateChange() {
+  const date = document.getElementById('date-select').value;
+  if (date) loadEmc(date);
+}
+
+function onFilterChange() {
+  ['usep', 'demand', 'solar'].forEach(k => {
+    const lbl = document.getElementById(`lbl-${k}`);
+    const checked = document.getElementById(`toggle-${k}`).checked;
+    const cls = k === 'demand' ? 'orange' : k === 'solar' ? 'yellow' : 'blue';
+    lbl.className = `toggle${checked ? ` checked-${cls}` : ''}`;
+  });
+  if (currentEmcData.length > 0) {
+    renderEmcChart(currentEmcData);
+    renderEmcTable(currentEmcData);
+  }
+}
+
+function onSort(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  renderEmcTable(currentEmcData);
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    // Resize charts after tab becomes visible (hidden canvases have zero dimensions)
+    setTimeout(() => {
+      if (btn.dataset.tab === 'emc' && emcChart) emcChart.resize();
+      if (btn.dataset.tab === 'live' && liveChart) liveChart.resize();
+      if (btn.dataset.tab === 'retail' && retailChart) retailChart.resize();
+    }, 50);
+  });
+});
+
+// ── helpers ───────────────────────────────────────────────────────────────
+const fmt2 = v => v != null ? Number(v).toFixed(2) : '—';
+const fmt0 = v => v != null ? Number(v).toFixed(0) : '—';
+
+init();
+</script>
+</body>
+</html>
