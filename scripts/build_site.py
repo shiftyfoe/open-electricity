@@ -11,6 +11,7 @@ Outputs:
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -19,11 +20,19 @@ ROOT = Path(__file__).parent.parent
 RAW = ROOT / "data" / "raw"
 OUT = ROOT / "docs" / "data"
 
+# Raw data files use compact YYYYMMDD (no dashes).
+# Web-facing JSON files use YYYY-MM-DD for readability.
+_DATE_FMT = "%Y%m%d"
+
 EMC_COLS = ["period", "usep", "demand_mw", "solar_mw", "tcl_mw", "eheur", "lcp", "rusep", "map", "mapt"]
 
 RETAIL_COLS = ["scraped_date", "retailer", "offer_name", "offer_type",
                "price_cents_kwh", "discounted_price_cents_kwh",
                "estimated_monthly_sgd", "contract_months", "regulated_tariff_cents_kwh"]
+
+
+def _parse_stem(stem: str) -> datetime:
+    return datetime.strptime(stem, _DATE_FMT)
 
 
 def export_emc() -> list[str]:
@@ -34,9 +43,10 @@ def export_emc() -> list[str]:
     for f in sorted(src.glob("*.parquet")):
         df = pd.read_parquet(f)
         cols = [c for c in EMC_COLS if c in df.columns]
-        out = dst / f"{f.stem}.json"
+        iso_date = _parse_stem(f.stem).strftime("%Y-%m-%d")
+        out = dst / f"{iso_date}.json"
         out.write_text(df[cols].to_json(orient="records"))
-        dates.append(f.stem)
+        dates.append(iso_date)
     return dates
 
 
@@ -66,7 +76,7 @@ def export_retail() -> dict:
     history = []
     for f in files:
         df = pd.read_parquet(f)
-        row: dict = {"date": f.stem}
+        row: dict = {"date": _parse_stem(f.stem).strftime("%Y-%m-%d")}
         if "regulated_tariff_cents_kwh" in df.columns:
             row["regulated_tariff"] = df["regulated_tariff_cents_kwh"].iloc[0]
         for otype in ("FR", "DRT"):
@@ -79,7 +89,8 @@ def export_retail() -> dict:
         history.append(row)
     (OUT / "retail_history.json").write_text(json.dumps(history))
 
-    return {"latest_date": files[-1].stem, "plan_count": len(latest_df), "history_dates": len(files)}
+    return {"latest_date": _parse_stem(files[-1].stem).strftime("%Y-%m-%d"),
+            "plan_count": len(latest_df), "history_dates": len(files)}
 
 
 def main() -> None:
