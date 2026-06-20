@@ -1,0 +1,25 @@
+[project]
+name = "oem-tracker"
+version = "0.1.0"
+description = "Singapore Open Electricity Market daily data tracker"
+readme = "README.md"
+authors = [
+    { name = "Steven", email = "294174379+shiftyfoe@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.1",
+    "httpx>=0.27",
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "openpyxl>=3.1",
+    "rich>=13",
+    "beautifulsoup4>=4.12",
+]
+
+[project.scripts]
+oem = "oem_tracker.cli:cli"
+
+[build-system]
+requires = ["uv_build>=0.9.17,<0.10.0"]
+build-backend = "uv_build"
