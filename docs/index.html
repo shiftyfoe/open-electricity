@@ -183,6 +183,77 @@
       color: var(--blue);
       margin-left: 0.5rem;
     }
+
+    /* ── report-specific ── */
+    .recommendation-card {
+      background: rgba(96,165,250,0.08);
+      border: 1px solid rgba(96,165,250,0.25);
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .recommendation-card .title { font-size: 0.7rem; text-transform: uppercase; color: var(--blue); letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+    .recommendation-card .body { font-size: 0.9rem; line-height: 1.55; }
+
+    .prediction-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 2rem 1.5rem;
+      margin-bottom: 1.25rem;
+      text-align: center;
+      transition: border-color 0.3s;
+    }
+    .prediction-card .direction { font-size: 3rem; line-height: 1; margin-bottom: 0.25rem; }
+    .prediction-card .range { font-size: 1.35rem; font-weight: 700; }
+    .prediction-card .confidence { font-size: 0.8rem; color: var(--muted); margin-top: 0.4rem; }
+    .prediction-card.up   { border-color: var(--red);  }
+    .prediction-card.down { border-color: var(--green); }
+    .prediction-card.flat { border-color: var(--yellow); }
+    .prediction-card.up   .direction { color: var(--red); }
+    .prediction-card.down .direction { color: var(--green); }
+    .prediction-card.flat .direction { color: var(--yellow); }
+
+    .factor-list { list-style: none; padding: 0; }
+    .factor-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .factor-item:last-child { border-bottom: none; }
+    .factor-item .factor-name { flex: 1; font-size: 0.85rem; }
+    .factor-item .factor-note { flex: 2; font-size: 0.78rem; color: var(--muted); }
+    .factor-impact {
+      font-size: 0.72rem; padding: 0.125rem 0.5rem; border-radius: 9999px;
+      font-weight: 500; white-space: nowrap; text-transform: uppercase;
+    }
+    .factor-impact.upward   { background: rgba(248,113,113,0.15); color: var(--red); }
+    .factor-impact.downward { background: rgba(74,222,128,0.15); color: var(--green); }
+    .factor-impact.neutral  { background: rgba(148,163,184,0.12); color: var(--muted); }
+    .factor-impact.unknown  { background: rgba(148,163,184,0.08); color: var(--muted); }
+
+    #diff-tbody td { font-size: 0.82rem; }
+    #diff-tbody .alert-row.changed  { border-left: 3px solid var(--yellow); }
+    #diff-tbody .alert-row.new      { border-left: 3px solid var(--green); }
+    #diff-tbody .alert-row.removed  { border-left: 3px solid var(--red); }
+    #diff-tbody .alert-row.returned { border-left: 3px solid var(--blue); }
+
+    .disclaimer {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 1.25rem;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .brief-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+    @media (max-width: 640px) { .brief-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -216,6 +287,10 @@
   <button class="tab-btn active" data-tab="emc">Half-hourly (EMC)</button>
   <button class="tab-btn" data-tab="live">Live Snapshots</button>
   <button class="tab-btn" data-tab="retail">Retail Plans</button>
+  <button class="tab-btn" data-tab="daily-diff">Daily Diff</button>
+  <button class="tab-btn" data-tab="weekly-brief">Weekly Brief</button>
+  <button class="tab-btn" data-tab="monthly">Monthly</button>
+  <button class="tab-btn" data-tab="quarterly">Quarterly</button>
 </div>
 
 <!-- EMC half-hourly panel -->
@@ -341,6 +416,123 @@
   </div>
 </div>
 
+<!-- Daily Diff panel -->
+<div class="panel" id="panel-daily-diff">
+  <div class="stats" id="diff-stats">
+    <div class="stat">
+      <div class="stat-label">Total Plans</div>
+      <div class="stat-value blue" id="diff-total">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">New</div>
+      <div class="stat-value green" id="diff-new">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Removed</div>
+      <div class="stat-value red" id="diff-removed">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Changed</div>
+      <div class="stat-value yellow" id="diff-changed">—</div>
+    </div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:1rem">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left">Retailer</th>
+          <th style="text-align:left">Plan</th>
+          <th>Type</th>
+          <th>Prev. Price</th>
+          <th>New Price</th>
+          <th>Change</th>
+        </tr>
+      </thead>
+      <tbody id="diff-tbody"></tbody>
+    </table>
+  </div>
+  <div class="empty" id="daily-diff-empty">Need at least 2 days of retail data to show differences. Collect more data with the daily scraper.</div>
+</div>
+
+<!-- Weekly Brief panel -->
+<div class="panel" id="panel-weekly-brief">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">7-Day USEP Avg</div>
+      <div class="stat-value blue" id="wb-usep-avg">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">VCP-USEP Spread</div>
+      <div class="stat-value orange" id="wb-spread">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Regulated Tariff</div>
+      <div class="stat-value yellow" id="wb-tariff">—</div>
+    </div>
+  </div>
+
+  <div class="recommendation-card" style="margin-top:1rem">
+    <div class="title">Recommendation</div>
+    <div class="body" id="wb-recommendation">—</div>
+  </div>
+
+  <div class="brief-grid">
+    <div class="chart-wrap">
+      <canvas id="weekly-usep-chart"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="weekly-retail-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="empty" id="weekly-brief-empty">Need at least 7 days of data for a full weekly brief. The scraper collects daily, so check back soon.</div>
+</div>
+
+<!-- Monthly Analytics panel -->
+<div class="panel" id="panel-monthly">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Monthly USEP Avg</div>
+      <div class="stat-value blue" id="ma-usep-avg">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Solar Corr.</div>
+      <div class="stat-value orange" id="ma-correlation">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Wholesale–Retail Spread</div>
+      <div class="stat-value yellow" id="ma-spread">—</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap" style="margin-top:1rem">
+    <canvas id="monthly-intraday-chart"></canvas>
+    <div class="empty" id="monthly-intraday-empty">More data needed.</div>
+  </div>
+
+  <div class="empty" id="monthly-empty">Need at least 15 days of data in a single calendar month for monthly analytics. Customize with: oem backfill --from-date YYYY-MM-DD</div>
+</div>
+
+<!-- Quarterly Prediction panel -->
+<div class="panel" id="panel-quarterly">
+  <div class="prediction-card flat" id="prediction-card">
+    <div class="direction">—</div>
+    <div class="range">Loading…</div>
+    <div class="confidence"></div>
+  </div>
+
+  <div class="recommendation-card">
+    <div class="title">What You Should Do</div>
+    <div class="body" id="qp-recommendation">—</div>
+  </div>
+
+  <h3 style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em">Factors Affecting the Tariff</h3>
+  <ul class="factor-list" id="qp-factors"></ul>
+
+  <div class="disclaimer" id="qp-disclaimer"></div>
+</div>
+
 <script>
 const BASE = '.';
 let emcChart = null;
@@ -354,6 +546,11 @@ let retailSortCol = '_effective';
 let retailSortAsc = true;
 let retailChart = null;
 let retailHistoryChart = null;
+let dailyDiffChart = null;
+let weeklyUsepChart = null;
+let weeklyRetailChart = null;
+let monthlyIntradayChart = null;
+let quarterlyTariffChart = null;
 
 const EMC_COLS = [
   { key: 'period',    label: 'Period',        fmt: v => v },
@@ -390,6 +587,10 @@ async function init() {
   await loadEmcTrend();
   await loadLive();
   await loadRetail();
+  await loadDailyDiff();
+  await loadWeeklyBrief();
+  await loadMonthlyAnalytics();
+  await loadQuarterlyPrediction();
 
   if (dates.length > 0) {
     sel.value = dates[dates.length - 1];
@@ -766,6 +967,138 @@ function renderEmcTable(data) {
   ).join('');
 }
 
+// ── daily diff ────────────────────────────────────────────────────────────
+async function loadDailyDiff() {
+  let data;
+  try { data = await fetch(`${BASE}/data/daily_diff.json`).then(r => r.json()); } catch { return; }
+  if (data.status === 'insufficient_data' || !data.alerts) {
+    document.getElementById('daily-diff-empty').style.display = 'flex';
+    document.getElementById('diff-stats').style.display = 'none';
+    return;
+  }
+  document.getElementById('daily-diff-empty').style.display = 'none';
+  document.getElementById('diff-stats').style.display = '';
+  const s = data.summary;
+  document.getElementById('diff-total').textContent = s.total_plans ?? '—';
+  document.getElementById('diff-new').textContent = s.new_count ?? '0';
+  document.getElementById('diff-removed').textContent = s.removed_count ?? '0';
+  document.getElementById('diff-changed').textContent = s.changed_count ?? '0';
+  renderDiffAlerts(data.alerts);
+}
+
+function renderDiffAlerts(alerts) {
+  const tbody = document.getElementById('diff-tbody');
+  if (!alerts.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No changes — all plans unchanged</td></tr>';
+    return;
+  }
+  tbody.innerHTML = alerts.map(a => {
+    const directionIcon = a.direction === 'up' ? '↑' : a.direction === 'down' ? '↓' : '';
+    const color = a.direction === 'up' ? 'var(--red)' : 'var(--green)';
+    const prevStr = a.previous_price != null ? a.previous_price.toFixed(2) : '—';
+    const newStr = a.latest_price != null ? a.latest_price.toFixed(2) : '—';
+    const changeStr = a.status === 'changed'
+      ? `<span style="color:${color}">${directionIcon} ${Math.abs(a.change_pct).toFixed(1)}%</span>`
+      : a.status;
+    return `<tr class="alert-row ${a.status}">
+      <td style="text-align:left">${esc(a.retailer)}</td>
+      <td style="text-align:left">${esc(a.offer_name)}</td>
+      <td>${a.offer_type}</td>
+      <td>${prevStr}</td>
+      <td>${newStr}</td>
+      <td>${changeStr}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── weekly brief ──────────────────────────────────────────────────────────
+async function loadWeeklyBrief() {
+  let data;
+  try { data = await fetch(`${BASE}/data/weekly_brief.json`).then(r => r.json()); } catch { return; }
+  if (data.status === 'insufficient_data' || data.data_days < 1) {
+    document.getElementById('weekly-brief-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('weekly-brief-empty').style.display = 'none';
+  document.getElementById('wb-usep-avg').textContent = data.usep['7day_avg'] != null ? data.usep['7day_avg'].toFixed(2) + ' $/MWh' : '—';
+  document.getElementById('wb-spread').textContent = data.vcp_usep_spread['7day_avg'] != null ? data.vcp_usep_spread['7day_avg'].toFixed(2) + ' $/MWh' : '—';
+  document.getElementById('wb-tariff').textContent = data.retail.regulated_tariff != null ? data.retail.regulated_tariff.toFixed(2) + ' ¢/kWh' : '—';
+  document.getElementById('wb-recommendation').textContent = data.recommendation || 'Monitor market conditions.';
+  // Charts would use trend data when available; skip for now with limited data
+}
+
+// ── monthly analytics ─────────────────────────────────────────────────────
+async function loadMonthlyAnalytics() {
+  let data;
+  try { data = await fetch(`${BASE}/data/monthly_analytics.json`).then(r => r.json()); } catch { return; }
+  if (data.status === 'insufficient_data' || !data.intraday) {
+    document.getElementById('monthly-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('monthly-empty').style.display = 'none';
+  document.getElementById('ma-usep-avg').textContent = data.usep.monthly_avg != null ? data.usep.monthly_avg.toFixed(2) + ' $/MWh' : '—';
+  document.getElementById('ma-correlation').textContent = data.solar_price_correlation != null ? data.solar_price_correlation.toFixed(2) : '—';
+  const spread = data.retail?.wholesale_retail_spread;
+  document.getElementById('ma-spread').textContent = spread != null ? spread.toFixed(2) + ' ¢/kWh' : '—';
+  renderIntradayChart(data.intraday);
+}
+
+function renderIntradayChart(intraday) {
+  document.getElementById('monthly-intraday-empty').style.display = 'none';
+  const labels = ['Night 00-06', 'Morning 06-12', 'Afternoon 12-18', 'Evening 18-24'];
+  const values = [intraday.night, intraday.morning, intraday.afternoon, intraday.evening];
+  const colors = ['#64748b', '#facc15', '#4ade80', '#f97316'];
+  if (monthlyIntradayChart) monthlyIntradayChart.destroy();
+  monthlyIntradayChart = new Chart(document.getElementById('monthly-intraday-chart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Avg USEP $/MWh', data: values, backgroundColor: colors, borderRadius: 4 }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+        y: { title: { display: true, text: 'USEP ($/MWh)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+      },
+    },
+  });
+}
+
+// ── quarterly prediction ──────────────────────────────────────────────────
+async function loadQuarterlyPrediction() {
+  let data;
+  try { data = await fetch(`${BASE}/data/quarterly_prediction.json`).then(r => r.json()); } catch { return; }
+  const card = document.getElementById('prediction-card');
+  const dir = data.prediction?.direction || 'flat';
+  card.className = `prediction-card ${dir === 'increase' ? 'up' : dir === 'decrease' ? 'down' : 'flat'}`;
+  const arrows = { increase: '↑', decrease: '↓', flat: '↔' };
+  card.querySelector('.direction').textContent = arrows[dir] || '—';
+  if (data.prediction?.range?.low && data.prediction?.range?.high) {
+    card.querySelector('.range').textContent = `${data.prediction.range.low.toFixed(2)} – ${data.prediction.range.high.toFixed(2)} ¢/kWh`;
+  } else {
+    card.querySelector('.range').textContent = 'Insufficient data for range estimate';
+  }
+  card.querySelector('.confidence').textContent = data.prediction?.confidence
+    ? `Confidence: ${data.prediction.confidence}`
+    : '';
+  document.getElementById('qp-recommendation').textContent = data.recommendation || 'Monitor the market and compare offers.';
+  document.getElementById('qp-disclaimer').textContent = data.disclaimer || '';
+  renderFactors(data.factors || []);
+}
+
+function renderFactors(factors) {
+  document.getElementById('qp-factors').innerHTML = factors.map(f => {
+    const impactClass = f.impact || 'neutral';
+    return `<li class="factor-item">
+      <span class="factor-impact ${impactClass}">${f.impact}</span>
+      <span class="factor-name">${esc(f.name)}</span>
+      <span class="factor-note">${esc(f.note || '')}</span>
+    </li>`;
+  }).join('');
+}
+
 // ── shared chart options ──────────────────────────────────────────────────
 function chartOptions(yId, yLabel, y2Id, y2Label) {
   return {
@@ -831,6 +1164,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       if (btn.dataset.tab === 'emc') { emcTrendChart?.resize(); emcChart?.resize(); }
       if (btn.dataset.tab === 'live' && liveChart) liveChart.resize();
       if (btn.dataset.tab === 'retail') { retailHistoryChart?.resize(); retailChart?.resize(); }
+      if (btn.dataset.tab === 'daily-diff') dailyDiffChart?.resize();
+      if (btn.dataset.tab === 'weekly-brief') { weeklyUsepChart?.resize(); weeklyRetailChart?.resize(); }
+      if (btn.dataset.tab === 'monthly') monthlyIntradayChart?.resize();
+      if (btn.dataset.tab === 'quarterly') quarterlyTariffChart?.resize();
     }, 50);
   });
 });

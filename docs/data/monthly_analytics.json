@@ -1,0 +1,1 @@
+{"month": "2026-06", "status": "ok", "data_days": 1, "usep": {"monthly_avg": 168.21, "monthly_min": 122.25, "monthly_max": 185.97, "monthly_stdev": 17.39}, "intraday": {"night": 177.17, "morning": 169.59, "afternoon": 145.87, "evening": 180.22}, "solar_price_correlation": -0.96, "demand": {"average_peak": 7342.3, "average_trough": 5987.8}, "retail": {}}
