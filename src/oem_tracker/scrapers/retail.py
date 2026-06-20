@@ -14,7 +14,6 @@ import pandas as pd
 from ..config import RETAIL_API_BASE, RETAIL_COMPARE_ORIGIN
 
 HEADERS = {
-    "User-Agent": "oem-tracker/0.1 (data research; espsluar@gmail.com)",
     "Origin": RETAIL_COMPARE_ORIGIN,
     "Referer": RETAIL_COMPARE_ORIGIN + "/",
 }

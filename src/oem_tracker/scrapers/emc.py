@@ -18,7 +18,6 @@ import pandas as pd
 from ..config import EMC_DOWNLOAD_URL, EMC_DATASETS
 
 HEADERS = {
-    "User-Agent": "oem-tracker/0.1 (data research; espsluar@gmail.com)",
     "Referer": "https://www.nems.emcsg.com/nems-prices",
 }
 
