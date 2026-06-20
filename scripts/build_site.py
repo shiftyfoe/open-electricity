@@ -2,11 +2,12 @@
 """Export raw data to web-friendly JSON files for the static dashboard.
 
 Outputs:
-  docs/data/manifest.json        — available dates per source
-  docs/data/emc/<date>.json      — 48 half-hour rows per EMC date
-  docs/data/live.json            — all live snapshots as an array
-  docs/data/retail_latest.json   — current retail plans (latest scraped date)
-  docs/data/retail_history.json  — daily cheapest FR/DRT prices over time
+  docs/data/manifest.json            — available dates per source
+  docs/data/emc/<date>.json          — 48 half-hour rows per EMC date
+  docs/data/emc_daily_summary.json   — daily aggregates across all EMC dates
+  docs/data/live.json                — all live snapshots as an array
+  docs/data/retail_latest.json       — current retail plans (latest scraped date)
+  docs/data/retail_history.json      — daily cheapest FR/DRT prices over time
 """
 from __future__ import annotations
 
@@ -48,6 +49,27 @@ def export_emc() -> list[str]:
         out.write_text(df[cols].to_json(orient="records"))
         dates.append(iso_date)
     return dates
+
+
+def export_emc_daily_summary() -> list[dict]:
+    """Generate daily aggregates across all EMC dates for trend charts."""
+    src = RAW / "emc"
+    rows: list[dict] = []
+    for f in sorted(src.glob("*.parquet")):
+        df = pd.read_parquet(f)
+        row: dict = {"date": _parse_stem(f.stem).strftime("%Y-%m-%d")}
+        if "usep" in df.columns:
+            row["usep_avg"] = round(float(df["usep"].mean()), 2)
+            row["usep_min"] = round(float(df["usep"].min()), 2)
+            row["usep_max"] = round(float(df["usep"].max()), 2)
+        if "demand_mw" in df.columns:
+            row["demand_peak"] = round(float(df["demand_mw"].max()), 1)
+            row["demand_avg"] = round(float(df["demand_mw"].mean()), 1)
+        if "solar_mw" in df.columns:
+            row["solar_peak"] = round(float(df["solar_mw"].max()), 1)
+        rows.append(row)
+    (OUT / "emc_daily_summary.json").write_text(json.dumps(rows))
+    return rows
 
 
 def export_live() -> int:
@@ -96,6 +118,7 @@ def export_retail() -> dict:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     emc_dates = export_emc()
+    emc_summary = export_emc_daily_summary()
     live_count = export_live()
     retail_info = export_retail()
     manifest = {
@@ -104,8 +127,8 @@ def main() -> None:
         "retail": retail_info,
     }
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2))
-    print(f"Built: {len(emc_dates)} EMC dates, {live_count} live, "
-          f"{retail_info['plan_count']} retail plans → {OUT}")
+    print(f"Built: {len(emc_dates)} EMC dates, {len(emc_summary)} daily summaries, "
+          f"{live_count} live, {retail_info['plan_count']} retail plans → {OUT}")
 
 
 if __name__ == "__main__":

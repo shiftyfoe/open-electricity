@@ -220,6 +220,11 @@
 
 <!-- EMC half-hourly panel -->
 <div class="panel active" id="panel-emc">
+  <div class="chart-wrap" style="min-height:200px;margin-bottom:1rem">
+    <canvas id="emc-trend-chart"></canvas>
+    <div class="empty" id="emc-trend-empty">Collect more days of EMC data to see trends.</div>
+  </div>
+
   <div class="controls">
     <label>Date
       <select id="date-select" onchange="onDateChange()">
@@ -285,6 +290,11 @@
     <span id="retail-tariff-note" style="margin-left:auto;font-size:0.8rem;color:var(--muted)"></span>
   </div>
 
+  <div class="chart-wrap" style="min-height:200px;margin-bottom:1rem">
+    <canvas id="retail-history-chart"></canvas>
+    <div class="empty" id="retail-history-empty">Collect more days of retail data to see price trends.</div>
+  </div>
+
   <div class="chart-wrap" style="min-height:260px">
     <canvas id="retail-chart"></canvas>
     <div class="empty" id="retail-empty">No retail plan data. Run: oem fetch --source retail</div>
@@ -338,10 +348,12 @@ let liveChart = null;
 let currentEmcData = [];
 let sortCol = null;
 let sortAsc = true;
+let emcTrendChart = null;
 let retailData = [];
 let retailSortCol = '_effective';
 let retailSortAsc = true;
 let retailChart = null;
+let retailHistoryChart = null;
 
 const EMC_COLS = [
   { key: 'period',    label: 'Period',        fmt: v => v },
@@ -375,6 +387,7 @@ async function init() {
     sel.appendChild(opt);
   }
 
+  await loadEmcTrend();
   await loadLive();
   await loadRetail();
 
@@ -382,6 +395,76 @@ async function init() {
     sel.value = dates[dates.length - 1];
     await loadEmc(dates[dates.length - 1]);
   }
+}
+
+// ── EMC daily trend ────────────────────────────────────────────────────────
+async function loadEmcTrend() {
+  let rows = [];
+  try { rows = await fetch(`${BASE}/data/emc_daily_summary.json`).then(r => r.json()); } catch { return; }
+  if (rows.length < 2) {
+    document.getElementById('emc-trend-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('emc-trend-empty').style.display = 'none';
+
+  const labels = rows.map(r => r.date);
+  if (emcTrendChart) emcTrendChart.destroy();
+  emcTrendChart = new Chart(document.getElementById('emc-trend-chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '',  // hidden — bottom boundary of the band
+          data: rows.map(r => r.usep_min),
+          borderColor: 'rgba(96,165,250,0.2)',
+          borderWidth: 0.5,
+          tension: 0.3, yAxisID: 'y', pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: 'USEP range',  // hidden in legend via filter — top boundary, fills down
+          data: rows.map(r => r.usep_max),
+          borderColor: 'rgba(96,165,250,0.2)',
+          backgroundColor: 'rgba(96,165,250,0.1)',
+          borderWidth: 0.5,
+          tension: 0.3, yAxisID: 'y', pointRadius: 0,
+          fill: '-1',  // fill towards dataset index -1 (the min line)
+        },
+        {
+          label: 'USEP avg $/MWh',
+          data: rows.map(r => r.usep_avg),
+          borderColor: '#60a5fa',
+          backgroundColor: 'rgba(96,165,250,0.05)',
+          borderWidth: 2,
+          tension: 0.3, yAxisID: 'y', pointRadius: 3,
+          fill: false,
+        },
+        {
+          label: 'Peak demand MW',
+          data: rows.map(r => r.demand_peak),
+          borderColor: '#f97316',
+          borderWidth: 1.5,
+          tension: 0.3, yAxisID: 'y2', pointRadius: 2,
+          borderDash: [4, 4],
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e2e8f0', boxWidth: 12, padding: 12,
+          filter: item => !['', 'USEP range'].includes(item.text) } },
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, color: '#94a3b8', maxRotation: 0 }, grid: { color: '#334155' } },
+        y: { type: 'linear', position: 'left', title: { display: true, text: 'USEP ($/MWh)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+        y2: { type: 'linear', position: 'right', title: { display: true, text: 'Demand (MW)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { drawOnChartArea: false } },
+      },
+    },
+  });
 }
 
 // ── live data ─────────────────────────────────────────────────────────────
@@ -457,6 +540,42 @@ async function loadRetail() {
 
   renderRetailChart();
   renderRetailTable();
+
+  // Load and render retail history trend
+  let history = [];
+  try { history = await fetch(`${BASE}/data/retail_history.json`).then(r => r.json()); } catch { return; }
+  if (history.length < 2) {
+    document.getElementById('retail-history-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('retail-history-empty').style.display = 'none';
+  renderRetailHistoryChart(history);
+}
+
+function renderRetailHistoryChart(history) {
+  const labels = history.map(r => r.date);
+  const datasets = [];
+  if (history.some(r => r.cheapest_fr != null))
+    datasets.push({ label: 'Cheapest FR ¢/kWh', data: history.map(r => r.cheapest_fr), borderColor: '#60a5fa', tension: 0.3, yAxisID: 'y', pointRadius: 2, borderWidth: 2 });
+  if (history.some(r => r.cheapest_drt != null))
+    datasets.push({ label: 'Cheapest DRT ¢/kWh', data: history.map(r => r.cheapest_drt), borderColor: '#facc15', tension: 0.3, yAxisID: 'y', pointRadius: 2, borderWidth: 2 });
+  if (history.some(r => r.regulated_tariff != null))
+    datasets.push({ label: 'Regulated tariff', data: history.map(r => r.regulated_tariff), borderColor: '#94a3b8', borderDash: [4, 4], tension: 0.3, yAxisID: 'y', pointRadius: 0, borderWidth: 1.5 });
+
+  if (retailHistoryChart) retailHistoryChart.destroy();
+  retailHistoryChart = new Chart(document.getElementById('retail-history-chart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#e2e8f0', boxWidth: 12, padding: 12 } } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, color: '#94a3b8', maxRotation: 0 }, grid: { color: '#334155' } },
+        y: { type: 'linear', position: 'left', title: { display: true, text: '¢/kWh', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+      },
+    },
+  });
 }
 
 function effectivePrice(r) {
@@ -709,9 +828,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
     // Resize charts after tab becomes visible (hidden canvases have zero dimensions)
     setTimeout(() => {
-      if (btn.dataset.tab === 'emc' && emcChart) emcChart.resize();
+      if (btn.dataset.tab === 'emc') { emcTrendChart?.resize(); emcChart?.resize(); }
       if (btn.dataset.tab === 'live' && liveChart) liveChart.resize();
-      if (btn.dataset.tab === 'retail' && retailChart) retailChart.resize();
+      if (btn.dataset.tab === 'retail') { retailHistoryChart?.resize(); retailChart?.resize(); }
     }, 50);
   });
 });
