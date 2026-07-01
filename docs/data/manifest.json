@@ -9,15 +9,16 @@
       "2026-06-20",
       "2026-06-21",
       "2026-06-22",
-      "2026-06-23"
+      "2026-06-23",
+      "2026-06-24"
     ]
   },
   "live": {
-    "count": 9
+    "count": 10
   },
   "retail": {
-    "latest_date": "2026-06-30",
-    "plan_count": 16,
-    "history_dates": 9
+    "latest_date": "2026-07-01",
+    "plan_count": 14,
+    "history_dates": 10
   }
 }
